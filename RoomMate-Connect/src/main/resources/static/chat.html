@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Roommate Chat</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+  <h2>Roommate Chat</h2>
+  <div id="chat-box" style="border:1px solid #ccc; padding:10px; height:200px; overflow-y:scroll;"></div>
+  <input type="text" id="message" placeholder="Type a message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    let stompClient = null;
+
+    function connect() {
+      const socket = new SockJS('http://localhost:8080/ws');
+      stompClient = Stomp.over(socket);
+      stompClient.connect({}, function (frame) {
+        console.log('Connected: ' + frame);
+        stompClient.subscribe('/topic/messages', function (messageOutput) {
+          const msg = JSON.parse(messageOutput.body);
+          const chatBox = document.getElementById('chat-box');
+          chatBox.innerHTML += `<div><strong>${msg.sender}:</strong> ${msg.content}</div>`;
+        });
+      });
+    }
+
+    function sendMessage() {
+      const messageContent = document.getElementById('message').value;
+      const chatMessage = {
+        sender: "chris",
+        content: messageContent,
+        room: "Dorm 101"
+      };
+      stompClient.send("/app/chat.send", {}, JSON.stringify(chatMessage));
+      document.getElementById('message').value = '';
+    }
+
+    connect();
+  </script>
+</body>
+</html>
