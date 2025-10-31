@@ -1,6 +1,6 @@
 package com.roommate.RoomMate_Connect.controller;
 
-import org.apache.catalina.User;
+import com.roommate.RoomMate_Connect.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,11 +24,13 @@ public class LoginController {
 	
 	@PostMapping("/login")
 	public String processLogin(@RequestParam String username, @RequestParam String password, Model model) {
-		User user = (org.apache.catalina.User) userRepository.findByUsername(username);
-		
+		User user = userRepository.findByUsername(username);
+
 		if (user != null && user.getPassword().equals(password)) {
+			// on successful login redirect to the room page
+			// store username in the model or session if templates need it
 			model.addAttribute("username", username);
-			return "room";
+			return "redirect:/room";
 		} else {
 			model.addAttribute("error", "Invalid login credentials");
 			return "login";

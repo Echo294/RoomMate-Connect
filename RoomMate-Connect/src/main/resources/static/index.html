@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Roommate Chat App</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #chat-box { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; margin-bottom: 10px; }
+    nav button { margin-right: 10px; }
+    input { margin: 5px 0; padding: 5px; width: 200px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <button onclick="showLogin()">Login</button>
+    <button onclick="showChat()">Chat</button>
+    <button onclick="logout()">Logout</button>
+  </nav>
+
+  <p id="user-info"></p>
+
+  <div id="auth-section">
+    <h2>Login</h2>
+    <input id="login-username" placeholder="Username" />
+    <input id="login-password" placeholder="Password" type="password" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div id="chat-section" style="display:none;">
+    <h2>Roommate Chat</h2>
+    <div id="chat-box"></div>
+    <input id="message" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    let stompClient = null;
+    let currentUser = "";
+
+    async function login() {
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+
+      // submit credentials as form data to the server-side /login endpoint
+      const params = new URLSearchParams();
+      params.append('username', username);
+      params.append('password', password);
+
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+      });
+
+      if (res.ok) {
+        // server will redirect to /room on success; navigate there in the browser
+        window.location.href = '/room';
+      } else {
+        alert("Login failed. Check your credentials.");
+      }
+    }
+
+    function showLogin() {
+      document.getElementById('auth-section').style.display = 'block';
+      document.getElementById('chat-section').style.display = 'none';
+    }
+
+    function showChat() {
+      const token = localStorage.getItem("jwt");
+      if (token) {
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('chat-section').style.display = 'block';
+        if (!stompClient) connectWebSocket();
+      } else {
+        alert("Please log in first.");
+      }
+    }
+
+    function logout() {
+      if (stompClient && stompClient.connected) {
+        stompClient.disconnect(() => {
+          console.log("WebSocket disconnected");
+        });
+      }
+
+      localStorage.removeItem("jwt");
+      currentUser = "";
+      stompClient = null;
+
+      document.getElementById('chat-box').innerHTML = '';
+      document.getElementById('user-info').innerText = '';
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+      showLogin();
+    }
+
+    function connectWebSocket() {
+      const socket = new SockJS('/ws');
+      stompClient = Stomp.over(socket);
+      stompClient.connect({}, function () {
+        stompClient.subscribe('/topic/messages', function (msg) {
+          const message = JSON.parse(msg.body);
+          document.getElementById('chat-box').innerHTML += `<div><strong>${message.sender}:</strong> ${message.content}</div>`;
+        });
+      });
+    }
+
+    function sendMessage() {
+      const content = document.getElementById('message').value;
+      const chatMessage = {
+        sender: currentUser,
+        content: content,
+        room: "Dorm 101"
+      };
+      stompClient.send("/app/chat.send", {}, JSON.stringify(chatMessage));
+      document.getElementById('message').value = '';
+    }
+
+    window.onload = () => {
+      const token = localStorage.getItem("jwt");
+      if (token) {
+        currentUser = "chris"; // Replace with decoded username if needed
+        document.getElementById('user-info').innerText = `Logged in as: ${currentUser}`;
+        showChat();
+        connectWebSocket();
+      }
+    };
+  </script>
+</body>
+</html>
